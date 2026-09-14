@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual envs
+venv/
+my_env/
+.venv/
+env/
+
+# Data cache & artifacts
+*.parquet
+cache/
+artifacts/
+*.joblib
+*.pkl
+*.onnx
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
