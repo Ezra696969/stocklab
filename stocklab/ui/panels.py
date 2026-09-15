@@ -72,7 +72,7 @@ def chart_panel(result: RunResult | None) -> None:
             )
         panel_title("Kurva Ekuitas", note)
         st.plotly_chart(
-            _equity_figure(result), use_container_width=True, config={"displayModeBar": False}
+            _equity_figure(result), width="stretch", config={"displayModeBar": False}
         )
         _headline_metrics(result)
 
@@ -405,7 +405,7 @@ def validation_panel(report, trial_count: int) -> None:
                             "total_cost": "Total Biaya",
                         }
                     ),
-                    use_container_width=True,
+                    width="stretch",
                 )
 
         with tabs[2]:
@@ -449,4 +449,4 @@ def _stability_tab(report, explanation: str) -> None:
         ],
         accent="Sharpe Terburuk",
     )
-    st.dataframe(report.table, use_container_width=True, height=210)
+    st.dataframe(report.table, width="stretch", height=210)

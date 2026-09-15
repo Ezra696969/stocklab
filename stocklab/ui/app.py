@@ -75,9 +75,9 @@ def main() -> None:
 
     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
     run_col, validate_col, _ = st.columns([1, 1, 4])
-    run_clicked = run_col.button("Jalankan", type="primary", use_container_width=True)
+    run_clicked = run_col.button("Jalankan", type="primary", width="stretch")
     validate_clicked = validate_col.button(
-        "Validasi", use_container_width=True, disabled=result is None
+        "Validasi", width="stretch", disabled=result is None
     )
 
     panels.validation_panel(

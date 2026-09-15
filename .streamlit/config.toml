@@ -1,5 +1,8 @@
 [server]
 headless = true
+# Ikat ke localhost saja. Default Streamlit mendengarkan di 0.0.0.0, yang
+# membuat lab ini terbuka bagi siapa pun di jaringan yang sama.
+address = "localhost"
 fileWatcherType = "auto"
 
 [browser]
