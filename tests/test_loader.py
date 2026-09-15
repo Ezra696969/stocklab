@@ -103,6 +103,50 @@ class TestLoadCsv:
         assert frame.index.is_monotonic_increasing
         assert (frame["close"] > 0).all()
 
+    def test_local_calendar_date_is_preserved(self):
+        """Tanggal BEI tidak boleh mundur sehari gara-gara dikonversi ke UTC.
+
+        Bar bertanda 2020-01-02 00:00:00+07:00 menjadi 2020-01-01 17:00 kalau
+        diubah ke UTC sebelum timezone dibuang. Tidak ada error yang muncul;
+        yang muncul cuma bar yang jatuh di akhir pekan.
+        """
+        if not BBCA_CSV.exists():
+            pytest.skip("data contoh BBCA tidak ada")
+
+        frame = load_csv(BBCA_CSV)
+
+        assert frame.index[0] == pd.Timestamp("2020-01-02")
+        assert (frame.index.hour == 0).all(), "jam bukan tengah malam menandakan pergeseran"
+        assert (frame.index.dayofweek < 5).all(), "ada bar yang jatuh di akhir pekan"
+
+    def test_mixed_offsets_fall_back_to_utc(self, tmp_path: Path):
+        """Offset yang bercampur tidak bisa diwakili satu timezone."""
+        source = tmp_path / "prices.csv"
+        source.write_text(
+            "\n".join(
+                [
+                    "Date,Close",
+                    "2023-01-02 00:00:00+07:00,100",
+                    "2023-01-03 00:00:00+01:00,101",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        frame = load_csv(source)
+
+        assert len(frame) == 2
+        assert frame.index.tz is None
+
+    def test_naive_dates_are_left_alone(self, tmp_path: Path):
+        source = tmp_path / "prices.csv"
+        source.write_text(
+            "\n".join(["Date,Close", "2023-01-02,100", "2023-01-03,101"]),
+            encoding="utf-8",
+        )
+        frame = load_csv(source)
+
+        assert frame.index[0] == pd.Timestamp("2023-01-02")
+
     def test_writes_then_reads_round_trip(self, tmp_path: Path):
         source = tmp_path / "prices.csv"
         raw_frame().rename_axis("Date").to_csv(source)

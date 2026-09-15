@@ -110,9 +110,33 @@ def load_csv(path: str | Path, *, date_column: str | None = None) -> pd.DataFram
         raise ValueError(
             f"kolom tanggal '{date_column}' tidak ada; kolom: {list(raw.columns)}"
         )
-    raw[date_column] = pd.to_datetime(raw[date_column], utc=True, format="mixed")
+    raw[date_column] = _parse_dates(raw[date_column])
     raw = raw.set_index(date_column)
     return normalize_ohlcv(raw)
+
+
+def _parse_dates(values: pd.Series) -> pd.Series:
+    """Baca kolom tanggal sambil mempertahankan tanggal kalender setempat.
+
+    Mengubah ke UTC lebih dulu akan merusak data harian: bar BEI bertanda
+    ``2021-01-04 00:00:00+07:00`` menjadi ``2021-01-03 17:00`` begitu timezone
+    dibuang, sehingga seluruh deret mundur satu hari. Kesalahan seperti ini
+    tidak melempar error dan tidak terlihat pada grafik — yang terlihat hanya
+    tanggal yang jatuh di akhir pekan.
+
+    Jadi offset aslinya dipertahankan dulu, dan pembuangan timezone di
+    :func:`normalize_ohlcv` menyisakan waktu dinding setempat.
+    """
+    try:
+        parsed = pd.to_datetime(values, format="mixed")
+    except (ValueError, TypeError):
+        # Offset yang bercampur tidak bisa diwakili satu timezone; UTC adalah
+        # satu-satunya pilihan yang konsisten.
+        return pd.to_datetime(values, utc=True, format="mixed")
+
+    if not isinstance(parsed.dtype, pd.DatetimeTZDtype) and parsed.dtype != "datetime64[ns]":
+        return pd.to_datetime(values, utc=True, format="mixed")
+    return parsed
 
 
 def _cache_path(cache_dir: Path, ticker: str, start: str, end: str) -> Path:
