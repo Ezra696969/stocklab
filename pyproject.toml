@@ -19,6 +19,7 @@ app = [
     "plotly>=5.18",
     "yfinance>=0.2.40",
     "scikit-learn>=1.4",
+    "ollama>=0.3",
 ]
 dev = [
     "pytest>=8.0",
