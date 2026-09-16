@@ -85,7 +85,7 @@ def main() -> None:
     )
 
     if run_clicked:
-        _run(settings, config)
+        _run(settings, config, sizing.get("upload"))
     if validate_clicked:
         _validate(settings, config)
     if question:
@@ -168,12 +168,43 @@ def _load(settings) -> "pd.DataFrame":
     return _load_ticker(settings["ticker"], start, end)
 
 
-def _run(settings, config: RunConfig) -> None:
+def _uploaded_factory(upload, features):
+    """Bangun factory adapter dari artifact yang diunggah.
+
+    Berkasnya ditulis ke berkas sementara karena pemuat -- baik onnxruntime
+    maupun proses pekerja -- bekerja dengan path, bukan dengan buffer di memori.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from stocklab.models import load_uploaded_model
+
+    data = upload["file"].getvalue()
+    suffix = Path(upload["file"].name).suffix or ".bin"
+    handle = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    handle.write(data)
+    handle.close()
+
+    adapter = load_uploaded_model(
+        handle.name,
+        policy=upload["policy"],
+        feature_names=features,
+        train_end=upload.get("train_end") or None,
+    )
+    return lambda: adapter
+
+
+def _run(settings, config: RunConfig, upload=None) -> None:
+    factory = None
     try:
         with st.spinner("Memuat data..."):
             ohlcv = _load(settings)
-        with st.spinner("Melatih walk-forward..."):
-            result = run_pipeline(ohlcv, config)
+        if upload and upload.get("file") is not None:
+            with st.spinner("Memeriksa artifact..."):
+                names = [c for fc in config.features for c in _columns_of(fc)]
+                factory = _uploaded_factory(upload, names)
+        with st.spinner("Menjalankan model..."):
+            result = run_pipeline(ohlcv, config, factory)
     except Exception as error:
         st.error(f"{type(error).__name__}: {error}")
         return
@@ -210,6 +241,12 @@ def _validate(settings, config: RunConfig) -> None:
 
     st.session_state["validation"] = report
     st.rerun()
+
+
+def _columns_of(feature_config) -> list[str]:
+    from stocklab.features import column_names
+
+    return column_names(feature_config)
 
 
 def _window_years(ohlcv) -> int:

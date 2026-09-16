@@ -47,6 +47,29 @@ ollama pull llama3.2
 Kalau Ollama tidak terpasang, panel asisten tetap berfungsi dengan ringkasan
 yang disusun Python. Angkanya sama persis; yang hilang cuma percakapannya.
 
+### Membawa model sendiri
+
+Ekspor model Anda ke ONNX, sertakan nama fiturnya, lalu unggah lewat panel
+Model. Tidak ada kode yang perlu ditulis di aplikasi:
+
+```python
+import json
+from skl2onnx import to_onnx
+
+onnx_model = to_onnx(model, X.to_numpy(dtype="float32")[:1])
+
+# Opsional tapi sangat disarankan: tanpa ini aplikasi hanya tahu BERAPA fitur
+# yang dibutuhkan, bukan fitur apa saja, dan urutannya jadi tanggung jawab Anda.
+entry = onnx_model.metadata_props.add()
+entry.key = "feature_names"
+entry.value = json.dumps(list(X.columns))
+
+open("model.onnx", "wb").write(onnx_model.SerializeToString())
+```
+
+Artifact `.joblib` juga diterima, tapi harus diizinkan secara sadar lebih dulu —
+alasannya ada di [Threat model](#threat-model).
+
 Paket intinya bisa dipakai dari notebook tanpa menyentuh Streamlit sama sekali:
 
 ```python
@@ -286,19 +309,41 @@ dan user tidak punya cara membedakannya.
 
 ## Threat model
 
-Memuat artifact model berarti menjalankan kode dari berkas asing.
-`pickle.load()` dan `joblib.load()` mengeksekusi kode arbitrer saat
-deserialisasi — ini bukan risiko sampingan, ini permukaan serang utama dari
-fitur upload.
+Fitur upload punya satu permukaan serang yang mendominasi sisanya: `pickle.load()`
+dan `joblib.load()` **mengeksekusi kode arbitrer** saat deserialisasi. Itu bukan
+bug, melainkan cara kerjanya — `__reduce__` memang dirancang memanggil apa pun
+saat objek disusun ulang. Berkas `.joblib` dari sumber tak dikenal setara dengan
+menjalankan skrip asing.
 
-Karena itu **jalur upload sengaja dinonaktifkan** sampai hal berikut selesai:
+Ada dua kelas format, dan bedanya bukan soal derajat:
 
-- Allowlist format, mengutamakan ONNX dan safetensors di atas pickle
-- Pemuatan di subprocess terisolasi dengan batas waktu dan memori
-- Batas ukuran berkas
+**ONNX adalah graf yang di-parse, bukan program.** Memuatnya tidak menjalankan
+kode dari berkas. Ini jalur yang benar-benar aman, dan karena itu jadi **default**
+— tidak perlu izin apa pun.
 
-Sampai itu ada, jalankan StockLab hanya dengan model dari zoo bawaan, atau
-dengan artifact yang Anda buat sendiri di mesin yang sama.
+**Pickle dimatikan secara default** dan hanya menyala lewat pilihan sadar dengan
+peringatan yang menyebut konsekuensinya.
+
+Yang berlaku untuk keduanya: format dideteksi dari **byte pertama berkas, bukan
+ekstensinya** — pickle yang dinamai `.onnx` tetap tertangkap sebagai pickle; ada
+batas ukuran; dan berkas yang ditolak kebijakan tidak pernah dibuka oleh pustaka
+pemuat mana pun.
+
+### Yang subprocess benar-benar berikan
+
+Artifact pickle dimuat di proses terpisah. Perlu jelas apa artinya, karena kata
+"sandbox" sering dipakai untuk sesuatu yang bukan sandbox:
+
+**Yang didapat** — model yang rusak, memakan memori tanpa henti, atau
+menggantung tidak menjatuhkan aplikasi; prosesnya dibunuh saat lewat batas waktu.
+
+**Yang tidak didapat** — perlindungan terhadap berkas yang sengaja dibuat jahat.
+Kode di dalamnya tetap berjalan, hanya di proses lain, dengan hak akses yang sama
+terhadap berkas dan jaringan Anda. Di Windows batas memori bahkan tidak tersedia
+karena modul `resource` tidak ada.
+
+Jadi pemisahan proses di sini membatasi **kecelakaan, bukan serangan**. Hanya
+unggah artifact pickle yang Anda buat sendiri; untuk yang lain, ekspor ke ONNX.
 
 Server Streamlit diikat ke `localhost`. Default Streamlit mendengarkan di
 `0.0.0.0`, yang membuat lab ini terbuka bagi siapa pun di jaringan yang sama.
@@ -324,8 +369,13 @@ menjelaskannya.
   catatan di bagian validasi.
 - **Model pretrained tidak bisa diverifikasi.** Kalau sebuah artifact dilatih
   pada periode yang akan di-backtest, tidak ada kode yang bisa mendeteksinya.
-  Field `train_end` disediakan untuk dideklarasikan user; kalau dikosongkan,
-  hasilnya jadi tanggung jawab user.
+  Field `train_end` disediakan untuk dideklarasikan user — kalau diisi, backtest
+  dimulai setelah tanggal itu; kalau dikosongkan, hasilnya jadi tanggung jawab
+  user.
+- **Nama fitur tidak selalu tersimpan di artifact.** Konverter ONNX secara
+  bawaan hanya menyimpan *jumlah* fitur. Kalau begitu, user yang memilih fitur
+  beserta urutannya, dan aplikasi menyatakan bahwa urutan itu tidak bisa
+  diverifikasi. Urutan yang keliru tidak memicu error, hanya hasil yang salah.
 
 ---
 
@@ -336,7 +386,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-353 test. Yang paling layak dibaca lebih dulu:
+396 test. Yang paling layak dibaca lebih dulu:
 
 | Berkas | Isi |
 |---|---|
@@ -344,10 +394,10 @@ pytest
 | `tests/test_indicators.py` | Kausalitas tiap indikator, plus indikator bocor yang sengaja dibuat |
 | `tests/test_walkforward.py` | Uji struktural: tiap jendela latih dicatat dan dibandingkan dengan periode ujinya |
 | `tests/test_validation.py` | Tiap pemeriksaan diuji berpasangan — sinyal informatif dan sinyal kosong |
+| `tests/test_upload.py` | Kebijakan artifact, deteksi format dari isi berkas, dan kesepakatan ONNX dengan pickle |
 
 ### Belum dikerjakan
 
-- Tier 2: upload artifact (fondasi sudah ada, menunggu pemuatan terisolasi)
 - Tier 3: model time-series dari Hugging Face — Chronos, Lag-Llama, TimesFM
 - Validasi lintas saham
 - Perbandingan dua eksperimen berdampingan

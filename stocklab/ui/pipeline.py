@@ -179,20 +179,28 @@ def run_pipeline(
     target = direction_target(ohlcv["close"], horizon=config.horizon)
     factory = adapter_factory or _adapter_factory(config)
 
-    walkforward = walk_forward_signals(
-        factory,
-        features,
-        target,
-        train_size=config.train_size,
-        test_size=config.test_size,
-        embargo=config.embargo,
-        expanding=config.expanding,
-    )
-    if walkforward.n_fitted == 0:
-        raise ValueError(
-            "tidak ada fold yang bisa dilatih. Perpanjang rentang tanggal, "
-            "atau kecilkan jendela latih."
+    spec = factory().describe()
+    if spec.is_pretrained:
+        # Model terlatih tidak boleh dilatih ulang: bobotnya justru itu yang
+        # diunggah user. Walk-forward tidak berlaku, jadi prediksi dijalankan
+        # sekali untuk seluruh rentang, dan keabsahannya bergantung sepenuhnya
+        # pada train_end yang dideklarasikan user.
+        walkforward = _pretrained_signals(factory(), features, spec)
+    else:
+        walkforward = walk_forward_signals(
+            factory,
+            features,
+            target,
+            train_size=config.train_size,
+            test_size=config.test_size,
+            embargo=config.embargo,
+            expanding=config.expanding,
         )
+        if walkforward.n_fitted == 0:
+            raise ValueError(
+                "tidak ada fold yang bisa dilatih. Perpanjang rentang tanggal, "
+                "atau kecilkan jendela latih."
+            )
 
     # Backtest hanya pada jendela yang bisa diperdagangkan. Selama warmup dan
     # jendela latih pertama, model belum boleh berpendapat sementara buy & hold
@@ -213,10 +221,32 @@ def run_pipeline(
         walkforward=walkforward,
         backtest=backtest,
         metrics=backtest.summary(),
-        spec=factory().describe(),
+        spec=spec,
         warmup=warmup_bars(features),
         skipped=len(ohlcv) - len(tradable),
     )
+
+
+def _pretrained_signals(
+    adapter: Any, features: pd.DataFrame, spec: ModelSpec
+) -> WalkForwardResult:
+    """Jalankan model terlatih sekali untuk seluruh rentang.
+
+    Dibungkus sebagai :class:`WalkForwardResult` supaya sisa alur tidak perlu
+    membedakan asal sinyalnya. Jumlah fold nol dan bukan satu, karena memang
+    tidak ada pelatihan yang terjadi -- melaporkannya sebagai fold akan
+    menyiratkan validasi yang tidak pernah dilakukan.
+
+    Bar sebelum ``train_end`` dibuang kalau user menyebutkannya: di periode itu
+    model sedang melihat data yang pernah dipelajarinya.
+    """
+    signals = adapter.predict_signal(features)
+
+    if spec.train_end is not None:
+        after_training = features.index > spec.train_end
+        signals = signals.where(after_training)
+
+    return WalkForwardResult(signals=signals, folds=())
 
 
 def _tradable_window(

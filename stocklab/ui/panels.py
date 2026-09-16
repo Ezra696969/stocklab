@@ -215,20 +215,51 @@ def model_panel() -> tuple[str, dict[str, Any]]:
             help="Menaikkannya membuat model lebih pemilih dan menurunkan turnover.",
         )
 
-        with st.expander("Model sendiri"):
-            st.file_uploader(
-                "Artifact scikit-learn atau ONNX",
-                type=["joblib", "pkl", "onnx"],
-                key="model_upload",
-                disabled=True,
-            )
-            st.caption(
-                "Belum aktif. Memuat artifact berarti menjalankan kode dari berkas "
-                "asing, jadi jalur ini menunggu pemuatan terisolasi. Rencananya di "
-                "PLAN.md bagian 7."
-            )
+        upload = _upload_section()
 
-        return chosen, {"sizing": sizing, "threshold": threshold}
+        return chosen, {"sizing": sizing, "threshold": threshold, "upload": upload}
+
+
+def _upload_section() -> dict[str, Any]:
+    """Bagian upload artifact (Tier 2).
+
+    Izin pickle disajikan sebagai pilihan sadar, bukan kotak centang yang
+    tersembunyi di balik kata "lanjutan". User yang menyalakannya harus membaca
+    apa konsekuensinya lebih dulu.
+    """
+    from stocklab.models import LoadPolicy
+
+    with st.expander("Model sendiri"):
+        allow_pickle = st.checkbox(
+            "Izinkan format pickle (.joblib / .pkl)",
+            value=False,
+            key="allow_pickle",
+        )
+        policy = LoadPolicy(allow_pickle=allow_pickle)
+        if allow_pickle:
+            st.warning(policy.describe_risk())
+        else:
+            st.caption(policy.describe_risk())
+
+        uploaded = st.file_uploader(
+            "Artifact model",
+            type=["onnx", "joblib", "pkl"],
+            key="model_upload",
+        )
+
+        declared_end = st.date_input(
+            "Data latih berakhir (opsional)",
+            value=None,
+            key="train_end",
+            help=(
+                "Kalau diisi, backtest dimulai setelah tanggal ini. Aplikasi "
+                "tidak punya cara memeriksa apakah model sudah pernah melihat "
+                "periode yang diuji; kalau dikosongkan, hasilnya jadi "
+                "tanggung jawabmu."
+            ),
+        )
+
+    return {"file": uploaded, "policy": policy, "train_end": declared_end}
 
 
 # ---------------------------------------------------------------------------
