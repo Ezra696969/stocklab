@@ -22,6 +22,7 @@ from stocklab.validation import (
     rotation_test,
     validate,
 )
+from stocklab.validation.common import tradable_slice
 from tests.conftest import make_ohlcv
 
 
@@ -407,6 +408,56 @@ class TestValidationReport:
 
         encoded = json.dumps(report.summary(), default=float)
         assert "concerns" in encoded
+
+
+class TestTradableSlice:
+    """Jendela yang dipakai seluruh pemeriksaan harus sama dengan panel utama."""
+
+    def test_warmup_prefix_is_dropped(self):
+        prices = make_prices(n=300)
+        signals = arbitrary_signal(prices)
+        signals.iloc[:100] = np.nan
+
+        trimmed_prices, trimmed_signals = tradable_slice(prices, signals)
+
+        assert len(trimmed_prices) == 201
+        assert trimmed_prices.index.equals(trimmed_signals.index)
+
+    def test_slicing_twice_changes_nothing(self):
+        """Dipanggil di evaluate dan di validate; tidak boleh menggerus tiap kali."""
+        prices = make_prices(n=300)
+        signals = arbitrary_signal(prices)
+        signals.iloc[:100] = np.nan
+
+        once = tradable_slice(prices, signals)
+        twice = tradable_slice(*once)
+
+        assert twice[0].index.equals(once[0].index)
+
+    def test_signal_from_the_first_bar_is_left_alone(self):
+        prices = make_prices(n=50)
+        signals = arbitrary_signal(prices)
+
+        trimmed, _ = tradable_slice(prices, signals)
+        assert trimmed.index.equals(prices.index)
+
+    def test_all_nan_signal_is_left_alone(self):
+        prices = make_prices(n=50)
+        empty = pd.Series(np.nan, index=prices.index)
+
+        trimmed, _ = tradable_slice(prices, empty)
+        assert trimmed.index.equals(prices.index)
+
+    def test_benchmark_no_longer_gets_a_free_head_start(self):
+        """Tanpa pemangkasan, pasif memetik kenaikan sebelum model boleh main."""
+        prices = make_prices(n=300)
+        signals = arbitrary_signal(prices)
+        signals.iloc[:150] = np.nan
+
+        metrics = evaluate(prices, signals)
+        direct = evaluate(*tradable_slice(prices, signals))
+
+        assert metrics["benchmark_equity"] == pytest.approx(direct["benchmark_equity"])
 
 
 class TestEvaluate:

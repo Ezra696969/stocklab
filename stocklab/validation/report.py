@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 from stocklab.backtest.metrics import deflated_sharpe_ratio
-from stocklab.validation.common import Experiment, evaluate
+from stocklab.validation.common import Experiment, evaluate, tradable_slice
 from stocklab.validation.costs import CostSensitivity, cost_sensitivity
 from stocklab.validation.rotation import RotationTest, rotation_test
 from stocklab.validation.stability import (
@@ -163,22 +163,25 @@ def validate(
     Urutannya sengaja dari yang murah ke yang mahal, supaya masalah yang
     mencolok muncul sebelum sweep panjang dimulai.
     """
-    signals = experiment.signals(params)
-    baseline = evaluate(experiment.prices, signals, experiment.backtest_kwargs)
+    # Seluruh pemeriksaan memakai jendela yang sama dengan panel utama: bagian
+    # yang bisa diperdagangkan. Uji rotasi dan sensitivitas biaya menerima
+    # deret yang sudah dipangkas, bukan yang mentah.
+    prices, signals = tradable_slice(experiment.prices, experiment.signals(params))
+    baseline = evaluate(prices, signals, experiment.backtest_kwargs)
 
     assumed = float(experiment.backtest_kwargs.get("cost_bps", 0.0)) + float(
         experiment.backtest_kwargs.get("slippage_bps", 0.0)
     )
 
     rotation = rotation_test(
-        experiment.prices,
+        prices,
         signals,
         n_rotations=n_rotations,
         backtest_kwargs=experiment.backtest_kwargs,
         seed=seed,
     )
     costs = cost_sensitivity(
-        experiment.prices,
+        prices,
         signals,
         levels=cost_levels if cost_levels is not None else _default_levels(assumed),
         backtest_kwargs=experiment.backtest_kwargs,
@@ -191,9 +194,7 @@ def validate(
 
     from stocklab.backtest import run_backtest
 
-    returns = run_backtest(
-        experiment.prices, signals, **experiment.backtest_kwargs
-    ).returns
+    returns = run_backtest(prices, signals, **experiment.backtest_kwargs).returns
     trial_sharpes = parameters.sharpes() if parameters is not None else None
     deflated = deflated_sharpe_ratio(
         returns,

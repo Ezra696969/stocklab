@@ -16,7 +16,13 @@ from stocklab.backtest.metrics import (
     turnover_per_year,
 )
 
-__all__ = ["Experiment", "SignalBuilder", "evaluate", "rolling_windows"]
+__all__ = [
+    "Experiment",
+    "SignalBuilder",
+    "evaluate",
+    "rolling_windows",
+    "tradable_slice",
+]
 
 SignalBuilder = Callable[[pd.DataFrame, pd.Series, Mapping[str, Any]], pd.Series]
 """Menghasilkan bobot target dari fitur, label, dan parameter.
@@ -27,6 +33,27 @@ bukan sekadar memprediksi ulang dengan model yang sudah jadi.
 """
 
 
+def tradable_slice(
+    prices: pd.Series, signals: pd.Series
+) -> tuple[pd.Series, pd.Series]:
+    """Potong ke bar pertama yang sinyalnya bisa dieksekusi.
+
+    Selama warmup indikator dan jendela latih pertama, sinyalnya NaN — model
+    belum boleh berpendapat — sementara buy & hold sudah terisi penuh.
+    Membandingkan keduanya di periode itu bukan membandingkan dua keputusan.
+
+    Dimulai satu bar sebelum sinyal pertama, karena sinyal di bar itulah yang
+    menentukan posisi berikutnya. Idempoten: memotong dua kali menghasilkan
+    jendela yang sama.
+    """
+    valid = signals.notna()
+    if not valid.any():
+        return prices, signals
+    position = max(0, int(valid.argmax()) - 1)
+    window = prices.index[position:]
+    return prices.loc[window], signals.loc[window]
+
+
 def evaluate(
     prices: pd.Series,
     signals: pd.Series,
@@ -35,9 +62,15 @@ def evaluate(
 ) -> dict[str, float]:
     """Jalankan backtest dan ambil metrik yang dipakai seluruh pemeriksaan.
 
+    Jendelanya dipangkas lebih dulu ke bagian yang bisa diperdagangkan, supaya
+    tiap pemeriksaan membandingkan hal yang sama dengan yang ditampilkan panel
+    utama. Tanpa ini, tombol Validasi melaporkan angka dari jendela yang
+    berbeda dari tombol Jalankan.
+
     Sengaja ringkas: pemeriksaan stabilitas menjalankan ini ratusan kali, dan
     yang dibandingkan antar-run cuma segelintir angka.
     """
+    prices, signals = tradable_slice(prices, signals)
     result = run_backtest(prices, signals, **(backtest_kwargs or {}))
     benchmark_final = float(result.benchmark_equity.iloc[-1])
     final = float(result.equity.iloc[-1])
