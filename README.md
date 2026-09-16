@@ -116,9 +116,10 @@ dengan ketiadaan keputusan. Backtest hanya menghitung jendela yang bisa
 diperdagangkan, dan kedua garis berangkat dari modal yang sama di tanggal yang
 sama.
 
-Pada BBCA, koreksi ini memindahkan Sharpe benchmark dari **+0,16 ke −0,12** —
-seluruh selisihnya berasal dari kenaikan yang terjadi sebelum model boleh
-bertrading sama sekali.
+Efeknya tidak kecil. Pada BBCA rentang 2023–2025, koreksi ini memindahkan Sharpe
+benchmark dari **+0,16 ke −0,12**: seluruh selisihnya berasal dari kenaikan yang
+terjadi sebelum model boleh bertrading sama sekali, dan tanpa koreksi kenaikan
+itu dihitung sebagai keunggulan buy & hold.
 
 ### Biaya dan turnover
 
