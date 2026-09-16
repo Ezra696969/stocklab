@@ -486,7 +486,6 @@ pytest
 
 Ketiga tier dan kelima pemeriksaan validasi sudah lengkap. Yang masuk akal
 berikutnya:
-- Validasi lintas saham dari panel UI, bukan hanya dari notebook
 - Perbandingan dua eksperimen berdampingan
 - `TrialLog` yang bertahan antar restart
 - CI menjalankan pytest

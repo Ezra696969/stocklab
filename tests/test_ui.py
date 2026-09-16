@@ -109,7 +109,8 @@ class TestTrialLog:
         defaults = session_defaults()
         expected = {
             "trials", "messages", "result", "walkforward", "validation",
-            "ohlcv", "features", "model_spec", "uploaded_adapter",
+            "cross_section", "ohlcv", "features", "model_spec",
+            "uploaded_adapter",
         }
         assert expected <= set(defaults)
 
@@ -238,6 +239,17 @@ class TestValidationWindow:
         from stocklab.ui.app import _window_years
 
         assert _window_years(self.span(1.5)) == 2
+
+
+class TestUniverseDefaults:
+    def test_default_universe_reaches_beyond_one_exchange(self):
+        """Aset dari satu bursa bergerak bersama, jadi menambahnya tidak
+        banyak menambah bukti. Universe awal harus sudah mencerminkan itu."""
+        from stocklab.ui.app import DEFAULT_UNIVERSE, PRESET_TICKERS
+
+        assert len(DEFAULT_UNIVERSE) >= 3
+        assert all(t in PRESET_TICKERS for t in DEFAULT_UNIVERSE)
+        assert any(not t.endswith(".JK") for t in DEFAULT_UNIVERSE)
 
 
 class TestChatContext:

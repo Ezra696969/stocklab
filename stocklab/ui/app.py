@@ -22,9 +22,17 @@ from stocklab.ui.components import glass, panel_title
 from stocklab.ui.pipeline import RunConfig, make_experiment, run_pipeline
 from stocklab.ui.state import Trial, session_defaults
 from stocklab.ui.theme import CSS
-from stocklab.validation import validate
+from stocklab.validation import cross_section, validate
 
-PRESET_TICKERS = ["BBCA.JK", "BBRI.JK", "TLKM.JK", "ASII.JK", "^JKSE", "AAPL", "MSFT"]
+PRESET_TICKERS = [
+    "BBCA.JK", "BBRI.JK", "BMRI.JK", "TLKM.JK", "ASII.JK",
+    "UNVR.JK", "ICBP.JK", "KLBF.JK", "AAPL", "MSFT",
+]
+
+#: Universe awal untuk pemeriksaan lintas saham. Sengaja memuat saham di luar
+#: BEI: aset dari satu bursa bergerak bersama, jadi menambah saham dari bursa
+#: yang sama tidak banyak menambah bukti.
+DEFAULT_UNIVERSE = ["BBCA.JK", "BBRI.JK", "TLKM.JK", "ASII.JK", "AAPL"]
 
 
 def main() -> None:
@@ -74,20 +82,29 @@ def main() -> None:
     )
 
     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-    run_col, validate_col, _ = st.columns([1, 1, 4])
+    run_col, validate_col, universe_col, _ = st.columns([1, 1, 1, 3])
     run_clicked = run_col.button("Jalankan", type="primary", width="stretch")
     validate_clicked = validate_col.button(
         "Validasi", width="stretch", disabled=result is None
+    )
+    universe_clicked = universe_col.button(
+        "Lintas saham",
+        width="stretch",
+        disabled=result is None or len(settings["universe"]) < 2,
+        help="Butuh minimal dua aset; pilih di panel kiri.",
     )
 
     panels.validation_panel(
         st.session_state["validation"], st.session_state["trials"].n_distinct
     )
+    panels.cross_section_panel(st.session_state["cross_section"])
 
     if run_clicked:
         _run(settings, config, sizing.get("upload"))
     if validate_clicked:
         _validate(settings, config)
+    if universe_clicked:
+        _cross_section(settings, config)
     if question:
         _answer(question, client, context)
 
@@ -125,6 +142,18 @@ def _sidebar() -> dict:
             "membocorkan periode uji ke data latih."
         )
 
+        st.markdown("### Lintas saham")
+        universe = st.multiselect(
+            "Aset pembanding",
+            PRESET_TICKERS,
+            default=[t for t in DEFAULT_UNIVERSE if t in PRESET_TICKERS],
+            help=(
+                "Alur yang sama dijalankan pada tiap aset. Ini pemeriksaan "
+                "paling lama, dan yang paling sering membantah hasil yang lolos "
+                "pemeriksaan lain."
+            ),
+        )
+
         trials = st.session_state["trials"]
         if len(trials):
             st.markdown("---")
@@ -142,6 +171,7 @@ def _sidebar() -> dict:
         "csv": csv_file,
         "start": start_date,
         "end": end_date,
+        "universe": universe,
         "run": {
             "initial_capital": float(capital),
             "cost_bps": float(cost),
@@ -240,6 +270,36 @@ def _validate(settings, config: RunConfig) -> None:
         return
 
     st.session_state["validation"] = report
+    st.rerun()
+
+
+def _cross_section(settings, config: RunConfig) -> None:
+    """Jalankan alur yang sama pada tiap aset di universe.
+
+    Kemajuannya ditampilkan per aset. Studi ini melatih ulang model belasan kali
+    dan bisa memakan beberapa menit; antarmuka yang diam selama itu tidak bisa
+    dibedakan dari yang menggantung.
+    """
+    assets = list(settings["universe"])
+    start, end = str(settings["start"]), str(settings["end"])
+
+    bar = st.progress(0.0, text="Menyiapkan...")
+
+    def build(asset: str):
+        return make_experiment(_load_ticker(asset, start, end), config)
+
+    def advance(position: int, total: int, asset: str) -> None:
+        bar.progress(position / total, text=f"{asset} ({position + 1}/{total})")
+
+    try:
+        report = cross_section(build, assets, progress=advance)
+    except Exception as error:
+        bar.empty()
+        st.error(f"{type(error).__name__}: {error}")
+        return
+
+    bar.empty()
+    st.session_state["cross_section"] = report
     st.rerun()
 
 

@@ -118,6 +118,7 @@ def session_defaults() -> dict[str, Any]:
         "result": None,
         "walkforward": None,
         "validation": None,
+        "cross_section": None,
         "ohlcv": None,
         "features": None,
         "model_spec": None,

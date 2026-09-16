@@ -30,6 +30,7 @@ from stocklab.ui.theme import PALETTE, plotly_layout
 
 __all__ = [
     "chart_panel",
+    "cross_section_panel",
     "chat_panel",
     "indicator_panel",
     "model_panel",
@@ -498,3 +499,108 @@ def _stability_tab(report, explanation: str, skipped_reason: str | None = None) 
         accent="Sharpe Terburuk",
     )
     st.dataframe(report.table, width="stretch", height=210)
+
+
+# ---------------------------------------------------------------------------
+# Lintas saham
+# ---------------------------------------------------------------------------
+
+
+def cross_section_panel(report) -> None:
+    """Hasil alur yang sama dijalankan pada beberapa aset.
+
+    Panel ini sengaja tidak menyorot aset terbaik. Melaporkan pemenang dari
+    sepuluh yang dicoba adalah multiple testing yang paling mudah dilakukan
+    tanpa sadar; yang ditampilkan seluruh sebarannya, diurutkan supaya yang
+    terburuk sama terlihatnya dengan yang terbaik.
+    """
+    with glass("universe"):
+        panel_title("Lintas Saham")
+
+        if report is None:
+            st.caption(
+                "Belum dijalankan. Pemeriksaan ini mengulang seluruh alur untuk "
+                "tiap aset, jadi paling lama di antara semuanya — tapi juga yang "
+                "paling sering membantah hasil yang lolos pemeriksaan lain."
+            )
+            return
+
+        concerns(
+            report.concerns(),
+            empty_message=(
+                "Metode ini bertahan di sebagian besar aset yang diuji. Itu bukan "
+                "jaminan, hanya berarti hasilnya tidak bergantung pada satu saham."
+            ),
+        )
+
+        summary = report.summary()
+        metric_row(
+            [
+                (
+                    "Unggul Sharpe",
+                    fmt_pct(summary["sharpe_win_rate"], 0),
+                    f"nominal {fmt_pct(summary['win_rate'], 0)}",
+                ),
+                (
+                    "Sharpe Median",
+                    fmt_num(summary["median_sharpe"]),
+                    f"terburuk {fmt_num(summary['worst_sharpe'])}",
+                ),
+                (
+                    "Aset",
+                    f"{summary['n_assets']:.0f}",
+                    f"{summary['n_failed']:.0f} gagal" if summary["n_failed"] else None,
+                ),
+                (
+                    "Pengamatan Bebas",
+                    fmt_num(summary["effective_sample_size"], 1),
+                    f"korelasi {fmt_num(summary['mean_correlation'])}",
+                ),
+            ],
+            accent="Unggul Sharpe",
+        )
+
+        st.plotly_chart(
+            _cross_section_figure(report),
+            width="stretch",
+            config={"displayModeBar": False},
+        )
+
+        with st.expander("Angka per aset"):
+            st.dataframe(report.table, width="stretch")
+
+
+def _cross_section_figure(report) -> go.Figure:
+    """Sharpe tiap aset, dengan pasif sebagai penanda pembanding."""
+    table = report.table.dropna(subset=["sharpe"]).sort_values("sharpe")
+
+    figure = go.Figure()
+    figure.add_trace(
+        go.Bar(
+            x=table["sharpe"],
+            y=table.index,
+            orientation="h",
+            name="Strategi",
+            marker={"color": PALETTE["strategy"]},
+            hovertemplate="%{y} · strategi %{x:.2f}<extra></extra>",
+        )
+    )
+    figure.add_trace(
+        go.Scatter(
+            x=table["benchmark_sharpe"],
+            y=table.index,
+            mode="markers",
+            name="Pasif",
+            marker={"color": PALETTE["passive"], "size": 9,
+                    "line": {"color": "#0B0B0F", "width": 1.5}},
+            hovertemplate="%{y} · pasif %{x:.2f}<extra></extra>",
+        )
+    )
+
+    layout = plotly_layout(height=max(240, 34 * len(table)))
+    layout["margin"] = {"l": 8, "r": 20, "t": 10, "b": 8}
+    layout["xaxis"] = {**layout["xaxis"], "title": {"text": "Sharpe"},
+                       "zeroline": True, "zerolinecolor": PALETTE["grid"]}
+    layout["yaxis"] = {**layout["yaxis"], "gridcolor": "rgba(0,0,0,0)"}
+    figure.update_layout(**layout)
+    return figure

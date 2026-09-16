@@ -99,6 +99,35 @@ class TestCrossSection:
             cross_section(make_builder(), [])
 
 
+class TestProgress:
+    """Studi ini bisa memakan menit; antarmuka yang diam terbaca menggantung."""
+
+    def test_callback_fires_once_per_asset(self):
+        seen = []
+        cross_section(
+            make_builder(), ASSETS,
+            progress=lambda i, total, asset: seen.append((i, total, asset)),
+        )
+
+        assert [entry[2] for entry in seen] == ASSETS
+        assert all(total == len(ASSETS) for _, total, _ in seen)
+        assert [i for i, _, _ in seen] == list(range(len(ASSETS)))
+
+    def test_callback_fires_before_a_failing_asset_too(self):
+        """Aset yang gagal tetap harus terlihat sedang dikerjakan."""
+        seen = []
+        cross_section(
+            make_builder(broken=("CCC",)), ASSETS,
+            progress=lambda i, total, asset: seen.append(asset),
+        )
+
+        assert "CCC" in seen
+
+    def test_study_runs_without_a_callback(self):
+        report = cross_section(make_builder(), ASSETS)
+        assert report.n_assets == len(ASSETS)
+
+
 class TestCorrelation:
     """Sepuluh saham dari satu bursa bukan sepuluh bukti."""
 

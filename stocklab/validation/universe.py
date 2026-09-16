@@ -173,6 +173,7 @@ def cross_section(
     build: ExperimentBuilder,
     assets: Sequence[str],
     params: Mapping[str, Any] | None = None,
+    progress: Callable[[int, int, str], None] | None = None,
 ) -> CrossSectionReport:
     """Jalankan alur yang sama pada tiap aset dan kumpulkan sebarannya.
 
@@ -187,6 +188,10 @@ def cross_section(
     params:
         Parameter model, sama untuk semua aset — yang diuji di sini asetnya,
         bukan parameternya.
+    progress:
+        Dipanggil sebelum tiap aset dengan ``(nomor, total, simbol)``. Studi ini
+        melatih ulang model untuk tiap aset dan bisa memakan menit; antarmuka
+        yang diam selama itu tidak bisa dibedakan dari yang menggantung.
     """
     if not assets:
         raise ValueError("daftar aset kosong")
@@ -194,7 +199,9 @@ def cross_section(
     rows: list[dict[str, Any]] = []
     series: dict[str, pd.Series] = {}
 
-    for asset in assets:
+    for position, asset in enumerate(assets):
+        if progress is not None:
+            progress(position, len(assets), asset)
         try:
             experiment = build(asset)
             metrics = experiment.run(params)
