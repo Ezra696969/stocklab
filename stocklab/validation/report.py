@@ -113,7 +113,7 @@ class ValidationReport:
                 found.append(
                     f"Setelah dikoreksi terhadap jumlah konfigurasi yang dicoba, "
                     f"peluang Sharpe ini benar-benar positif tinggal "
-                    f"{self.deflated_sharpe:.0%}."
+                    f"{self.deflated_sharpe:.1%}."
                 )
 
         return found

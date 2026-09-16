@@ -202,7 +202,7 @@ def _validate(settings, config: RunConfig) -> None:
                 make_experiment(ohlcv, config),
                 grid=entry_grid,
                 n_rotations=300,
-                window_years=3,
+                window_years=_window_years(ohlcv),
             )
     except Exception as error:
         st.error(f"{type(error).__name__}: {error}")
@@ -210,6 +210,24 @@ def _validate(settings, config: RunConfig) -> None:
 
     st.session_state["validation"] = report
     st.rerun()
+
+
+def _window_years(ohlcv) -> int:
+    """Panjang jendela stabilitas periode, menyesuaikan data yang tersedia.
+
+    Jendela tetap tiga tahun membuat pemeriksaan ini diam-diam terlewat pada
+    rentang default aplikasi, yang kurang beberapa hari dari tiga tahun. Yang
+    dilewati justru pemeriksaan yang paling sering mementahkan strategi, dan
+    user tidak diberi tahu apa pun — panelnya hanya menulis "tidak dijalankan".
+
+    Dipilih jendela terpanjang yang masih menyisakan minimal dua jendela untuk
+    dibandingkan; satu jendela tidak mengatakan apa-apa soal stabilitas.
+    """
+    span_years = (ohlcv.index[-1] - ohlcv.index[0]).days / 365.25
+    for candidate in (3, 2):
+        if span_years >= candidate + 1:
+            return candidate
+    return 2
 
 
 def _grid_for(config: RunConfig) -> dict[str, list]:

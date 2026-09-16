@@ -420,6 +420,11 @@ def validation_panel(report, trial_count: int) -> None:
                 report.periods,
                 "Alur yang sama dijalankan pada beberapa rentang waktu. Ini yang "
                 "paling sering mementahkan strategi yang lolos pemeriksaan lain.",
+                skipped_reason=(
+                    "Rentang tanggalnya terlalu pendek untuk dibagi menjadi "
+                    "beberapa jendela yang bisa dibandingkan. Perpanjang rentang "
+                    "di panel kiri — minimal tiga tahun — lalu jalankan ulang."
+                ),
             )
 
         if report.deflated_sharpe == report.deflated_sharpe:
@@ -433,9 +438,15 @@ def validation_panel(report, trial_count: int) -> None:
             )
 
 
-def _stability_tab(report, explanation: str) -> None:
+def _stability_tab(report, explanation: str, skipped_reason: str | None = None) -> None:
+    """Render satu tab stabilitas.
+
+    Pemeriksaan yang dilewati harus menyebutkan alasannya. Keterangan "tidak
+    dijalankan" tanpa sebab membuat user mengira pemeriksaannya sudah lewat,
+    padahal justru tidak pernah berjalan.
+    """
     if report is None:
-        st.caption("Tidak dijalankan pada run ini.")
+        st.caption(skipped_reason or "Tidak dijalankan pada run ini.")
         return
 
     st.markdown(explanation)

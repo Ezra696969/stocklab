@@ -210,6 +210,36 @@ class TestPipeline:
         assert "sharpe" in metrics
 
 
+class TestValidationWindow:
+    """Jendela stabilitas periode harus menyesuaikan data yang tersedia."""
+
+    @staticmethod
+    def span(years: float):
+        import pandas as pd
+        n = int(years * 252)
+        return make_ohlcv(n=n)
+
+    def test_three_year_window_needs_four_years_of_data(self):
+        from stocklab.ui.app import _window_years
+
+        assert _window_years(self.span(5.0)) == 3
+
+    def test_short_range_falls_back_instead_of_skipping(self):
+        """Rentang default aplikasi kurang beberapa hari dari tiga tahun.
+
+        Dengan jendela tetap tiga tahun, stabilitas periode diam-diam terlewat
+        pada pengaturan bawaan -- dan itu pemeriksaan yang paling berguna.
+        """
+        from stocklab.ui.app import _window_years
+
+        assert _window_years(self.span(3.0)) == 2
+
+    def test_very_short_range_still_returns_a_usable_window(self):
+        from stocklab.ui.app import _window_years
+
+        assert _window_years(self.span(1.5)) == 2
+
+
 class TestChatContext:
     def test_empty_sections_are_omitted(self):
         """Model harus bisa membedakan nilai nol dari belum dijalankan."""
