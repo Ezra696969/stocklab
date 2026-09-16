@@ -35,4 +35,5 @@ Thumbs.db
 # pemadatannya; sumbernya puluhan megabyte dan akan menetap selamanya
 # di riwayat git.
 docs/*Edge*.gif
+docs/*online-video-cutter*.gif
 docs/_try_*.gif
