@@ -258,6 +258,49 @@ dan sampai itu ada, ini satu titik data, bukan bukti.
 
 ---
 
+## Model peramal zero-shot
+
+Selain model tabular yang dilatih di sini dan artifact yang Anda unggah,
+StockLab bisa menjalankan *foundation model* deret waktu dari Hugging Face —
+Chronos dan Chronos-Bolt. Model ini tidak pernah dilatih pada data saham sama
+sekali; ramalannya sepenuhnya zero-shot.
+
+Cara kerjanya berbeda dari model tabular. Alih-alih menerima sebaris indikator,
+peramal menerima potongan riwayat harga dan meramalkan kelanjutannya sebagai
+**sebaran**, bukan satu angka. Peluang naik dibaca dari posisi harga terakhir
+pada kurva kuantil ramalan — kalau harga sekarang jatuh di kuantil bawah,
+sebagian besar kemungkinan masa depan berada di atasnya. Hasilnya langsung
+berupa probabilitas, sehingga memakai ambang dan sizing yang sama persis dengan
+model Tier 1.
+
+Pilih **Harga** di panel Indikator, lalu pilih salah satu model Chronos.
+
+```bash
+pip install -e ".[forecast]"
+```
+
+### Hasilnya: tidak berhasil
+
+Ini hasil negatif, dan menurut saya bagian paling berguna dari seluruh fitur ini.
+BBCA 2021–2025, biaya 15 bps:
+
+| | Equity | Pasif | Sharpe |
+|---|---|---|---|
+| Chronos-Bolt Tiny | 100.188 | 146.112 | 0,09 vs 0,50 |
+| Chronos T5 Tiny | 82.340 | 146.112 | −0,12 vs 0,50 |
+
+Keduanya kalah telak dari buy & hold. Dan uji rotasi menutup kemungkinan bahwa
+ini cuma nasib buruk: **p = 0,27** — timing model tidak bisa dibedakan dari
+sinyal acak dengan pola posisi yang sama.
+
+Itu jawaban yang jelas untuk pertanyaan yang layak diajukan. Foundation model
+deret waktu memang mengesankan pada deret yang punya musiman dan tren, tapi
+harga saham harian sebagian besar adalah derau, dan model yang tidak pernah
+melihat data keuangan tidak menemukan apa pun di sana. Mengetahui itu — dengan
+angka, bukan dugaan — persis gunanya perkakas ini.
+
+---
+
 ## Arsitektur
 
 ```
@@ -386,7 +429,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-396 test. Yang paling layak dibaca lebih dulu:
+433 test. Yang paling layak dibaca lebih dulu:
 
 | Berkas | Isi |
 |---|---|
@@ -395,10 +438,10 @@ pytest
 | `tests/test_walkforward.py` | Uji struktural: tiap jendela latih dicatat dan dibandingkan dengan periode ujinya |
 | `tests/test_validation.py` | Tiap pemeriksaan diuji berpasangan — sinyal informatif dan sinyal kosong |
 | `tests/test_upload.py` | Kebijakan artifact, deteksi format dari isi berkas, dan kesepakatan ONNX dengan pickle |
+| `tests/test_forecaster.py` | Konversi kuantil jadi peluang, dan kausalitas konteks peramal |
 
 ### Belum dikerjakan
 
-- Tier 3: model time-series dari Hugging Face — Chronos, Lag-Llama, TimesFM
 - Validasi lintas saham
 - Perbandingan dua eksperimen berdampingan
 - CI menjalankan pytest

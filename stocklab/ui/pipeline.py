@@ -19,7 +19,7 @@ import pandas as pd
 from stocklab.backtest import BacktestResult, WalkForwardResult, run_backtest
 from stocklab.backtest.walkforward import walk_forward_signals
 from stocklab.features import FeatureConfig, build_features, warmup_bars
-from stocklab.models import ModelSpec, build_model, direction_target
+from stocklab.models import ModelSpec, build_any, direction_target
 from stocklab.models.base import PositionSizing
 from stocklab.validation import Experiment
 
@@ -119,7 +119,7 @@ class RunResult:
 
 def _adapter_factory(config: RunConfig) -> Callable[[], Any]:
     def factory():
-        return build_model(
+        return build_any(
             config.model_name,
             config.model_params,
             threshold=config.threshold,

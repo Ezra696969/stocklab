@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from stocklab.features import FEATURES, FeatureConfig
-from stocklab.models import MODELS, get_model_entry
+from stocklab.models import catalog, get_model_entry
 from stocklab.params import ParamSpec
 from stocklab.ui.components import (
     concerns,
@@ -188,15 +188,21 @@ def model_panel() -> tuple[str, dict[str, Any]]:
     with glass("model"):
         panel_title("Model")
 
-        names = sorted(MODELS)
+        entries = catalog()
+        names = list(entries)
         chosen = st.selectbox(
             "Algoritma",
             names,
             index=names.index("random_forest") if "random_forest" in names else 0,
-            format_func=lambda name: MODELS[name].label,
+            format_func=lambda name: entries[name].label,
             key="model_name",
         )
-        st.caption(MODELS[chosen].description)
+        st.caption(entries[chosen].description)
+        if entries[chosen].kind == "forecast":
+            st.info(
+                "Peramal deret waktu membaca riwayat harga, bukan indikator. "
+                "Pilih **Harga** di panel Indikator; indikator lain diabaikan."
+            )
 
         sizing = st.radio(
             "Ukuran posisi",
@@ -312,7 +318,7 @@ def param_panel(model_name: str) -> dict[str, Any]:
     nanti melayani model yang di-upload user.
     """
     with glass("params"):
-        entry = get_model_entry(model_name)
+        entry = catalog()[model_name]
         panel_title("Parameter Model", entry.label)
 
         specs = entry.param_specs()

@@ -24,6 +24,7 @@ import pandas as pd
 
 __all__ = [
     "atr",
+    "price",
     "bollinger",
     "ema",
     "log_returns",
@@ -35,6 +36,20 @@ __all__ = [
     "sma",
     "stochastic_k",
 ]
+
+
+def price(close: pd.Series, log: bool = True) -> pd.Series:
+    """Harga penutupan itu sendiri, opsional dalam skala logaritmik.
+
+    Dipakai model peramal deret waktu, yang menerima riwayat harga alih-alih
+    sebaris indikator. Skala log jadi default karena membuat perubahan relatif
+    berjarak sama di seluruh rentang harga, yang lebih cocok dengan cara model
+    peramal menskalakan masukannya.
+
+    Kausal secara sepele: tiap nilai adalah bar itu sendiri.
+    """
+    out = np.log(close) if log else close.astype(float)
+    return out.rename("price_log" if log else "price")
 
 
 def returns(close: pd.Series, window: int = 1) -> pd.Series:

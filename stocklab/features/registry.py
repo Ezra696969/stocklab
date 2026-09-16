@@ -90,6 +90,20 @@ def _window(low: int, high: int, default: int, label: str, help_: str) -> ParamS
 
 
 FEATURES: dict[str, FeatureSpec] = {
+    "price": FeatureSpec(
+        name="price",
+        fn=indicators.price,
+        inputs=("close",),
+        params={
+            "log": ParamSpec(
+                "log", "bool", True,
+                label="Skala logaritmik",
+                help="Membuat perubahan relatif berjarak sama di seluruh rentang harga.",
+            )
+        },
+        label="Harga",
+        description="Harga penutupan itu sendiri; dibutuhkan model peramal deret waktu.",
+    ),
     "returns": FeatureSpec(
         name="returns",
         fn=indicators.returns,
@@ -237,7 +251,15 @@ def get_feature(name: str) -> FeatureSpec:
         ) from None
 
 
-def _format(value: Any) -> str:
+def _format(name: str, value: Any) -> str:
+    """Potongan nama kolom untuk satu parameter.
+
+    Boolean memakai nama parameternya, bukan "True" atau "False": kolom bernama
+    ``price_log`` menjelaskan dirinya sendiri, sementara ``price_True`` tidak
+    mengatakan apa pun tentang apa yang benar.
+    """
+    if isinstance(value, bool):
+        return name if value else f"no_{name}"
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     if isinstance(value, float):
@@ -253,7 +275,7 @@ def column_names(config: FeatureConfig) -> list[str]:
     """
     spec = get_feature(config.name)
     params = spec.coerce(config.params)
-    suffix = "_".join(_format(params[name]) for name in spec.params)
+    suffix = "_".join(_format(name, params[name]) for name in spec.params)
     base = f"{spec.name}_{suffix}" if suffix else spec.name
     if not spec.outputs:
         return [base]

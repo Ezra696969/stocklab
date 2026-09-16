@@ -24,6 +24,10 @@ app = [
 onnx = [
     "onnxruntime>=1.17",
 ]
+forecast = [
+    "chronos-forecasting>=2.0",
+    "torch>=2.0",
+]
 dev = [
     "pytest>=8.0",
 ]

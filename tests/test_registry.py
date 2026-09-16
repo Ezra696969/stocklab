@@ -37,16 +37,24 @@ class TestRegistryContract:
 
     @pytest.mark.parametrize("name", sorted(FEATURES))
     def test_every_parameter_is_renderable(self, name: str):
-        """Rentang indikator kita sendiri diketahui, jadi slider selalu boleh."""
+        """Tiap parameter harus punya kontrol yang jujur mewakilinya.
+
+        Batas hanya bermakna untuk parameter numerik: boolean dirender sebagai
+        kotak centang dan pilihan sebagai dropdown, yang tidak punya rentang.
+        Menuntut batas pada keduanya akan memaksa angka karangan pada sesuatu
+        yang memang tidak punya rentang.
+        """
         spec = FEATURES[name]
 
         assert spec.params, f"'{name}' tidak punya parameter yang bisa diatur"
         for param_name, param in spec.params.items():
             assert param.name == param_name
             assert param.is_editable
-            assert param.is_bounded, "batas harus diisi, bukan dibiarkan ditebak UI"
-            assert param.low <= param.default <= param.high
             assert param.display_label
+
+            if param.kind in ("int", "float"):
+                assert param.is_bounded, "rentang numerik tidak boleh ditebak UI"
+                assert param.low <= param.default <= param.high
 
     @pytest.mark.parametrize("name", sorted(FEATURES))
     def test_defaults_produce_usable_output(self, name: str):
