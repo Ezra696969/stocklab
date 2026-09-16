@@ -30,3 +30,9 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Rekaman layar mentah. Yang masuk repo cuma docs/demo.gif hasil
+# pemadatannya; sumbernya puluhan megabyte dan akan menetap selamanya
+# di riwayat git.
+docs/*Edge*.gif
+docs/_try_*.gif

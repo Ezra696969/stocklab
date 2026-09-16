@@ -4,7 +4,7 @@ Lab backtesting model machine learning untuk data saham — walk-forward, biaya
 transaksi, dan serangkaian pemeriksaan yang tugasnya **mementahkan** hasil
 backtest, bukan mempercantiknya.
 
-![Equity curve](docs/equity.png)
+![Demo StockLab](docs/demo.gif)
 
 Analoginya SPSS: user membawa model dan hipotesisnya, aplikasi mengurus
 eksperimen, validasi, dan pelaporannya — tanpa user perlu menulis kode.
@@ -195,6 +195,8 @@ kekhawatiran berikut angkanya.
 ---
 
 ## Hasil pada BBCA
+
+![Equity curve](docs/equity.png)
 
 Random Forest (100 pohon), 5 indikator, walk-forward pada 2022-01-07 sampai
 2025-12-30 — 954 bar, 46 kali latih ulang — biaya 15 bps per sisi:
