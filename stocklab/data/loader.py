@@ -146,26 +146,56 @@ def _cache_path(cache_dir: Path, ticker: str, start: str, end: str) -> Path:
     return cache_dir / f"{safe}_{digest}.parquet"
 
 
-def _fetch_yfinance(ticker: str, start: str, end: str) -> pd.DataFrame:
-    """Ambil data dari yfinance. Dipisah agar mudah diganti saat pengujian."""
+#: Berapa kali pengambilan diulang sebelum menyerah, dan jeda awalnya.
+FETCH_ATTEMPTS = 4
+FETCH_BACKOFF_SECONDS = 2.0
+
+
+def _fetch_yfinance(
+    ticker: str, start: str, end: str, attempts: int = FETCH_ATTEMPTS
+) -> pd.DataFrame:
+    """Ambil data dari yfinance, dengan percobaan ulang.
+
+    Kegagalan di sini sering bersifat sementara — sertifikat SSL yang gagal
+    diverifikasi, koneksi yang diputus, pembatasan laju — dan ticker yang sama
+    berhasil beberapa detik kemudian. Tanpa percobaan ulang, studi lintas saham
+    yang mengambil belasan simbol berturut-turut akan kehilangan sebagian
+    asetnya secara acak, lalu melaporkan statistik dari sisanya seolah-olah
+    itu seluruh rencananya.
+
+    Dipisah dari :func:`load_ohlcv` agar mudah diganti saat pengujian.
+    """
+    import time
+
     import yfinance as yf  # impor lambat: paket inti tidak butuh jaringan
 
     # end di yfinance eksklusif; ditambah satu hari agar user yang meminta
     # 2025-12-31 benar-benar mendapat bar 2025-12-31.
     end_exclusive = (pd.Timestamp(end) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-    data = yf.download(
-        ticker,
-        start=start,
-        end=end_exclusive,
-        auto_adjust=True,
-        progress=False,
+
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        if attempt:
+            time.sleep(FETCH_BACKOFF_SECONDS * (2 ** (attempt - 1)))
+        try:
+            data = yf.download(
+                ticker,
+                start=start,
+                end=end_exclusive,
+                auto_adjust=True,
+                progress=False,
+            )
+        except Exception as error:
+            last_error = error
+            continue
+        if data is not None and not data.empty:
+            return data
+
+    detail = f" ({type(last_error).__name__}: {last_error})" if last_error else ""
+    raise ValueError(
+        f"yfinance tidak mengembalikan data untuk '{ticker}' pada rentang "
+        f"{start}..{end} setelah {attempts} percobaan{detail}"
     )
-    if data is None or data.empty:
-        raise ValueError(
-            f"yfinance tidak mengembalikan data untuk '{ticker}' "
-            f"pada rentang {start}..{end}"
-        )
-    return data
 
 
 def load_ohlcv(

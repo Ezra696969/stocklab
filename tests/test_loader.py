@@ -175,6 +175,83 @@ class CountingFetcher:
         return self.frame
 
 
+class FlakyFetcher:
+    """Gagal beberapa kali lalu berhasil, seperti SSL yang putus sementara."""
+
+    def __init__(self, frame: pd.DataFrame, failures: int):
+        self.frame = frame
+        self.remaining = failures
+        self.calls = 0
+
+    def __call__(self, ticker: str, start: str, end: str) -> pd.DataFrame:
+        self.calls += 1
+        if self.remaining > 0:
+            self.remaining -= 1
+            raise ConnectionError("SSL: unable to obtain common name")
+        return self.frame
+
+
+class TestRetry:
+    """Kegagalan jaringan sementara tidak boleh menghapus aset dari studi.
+
+    Diuji lewat ``_fetch_yfinance`` yang sesungguhnya, dengan ``yfinance.download``
+    diganti — menguji ulang logika retry yang ditulis di test sendiri tidak
+    membuktikan apa pun tentang kode yang dipakai aplikasi.
+    """
+
+    def test_transient_failure_is_retried(self, monkeypatch):
+        import yfinance
+
+        import stocklab.data.loader as loader
+
+        monkeypatch.setattr(loader, "FETCH_BACKOFF_SECONDS", 0.0)
+        flaky = FlakyFetcher(raw_frame(n=40), failures=2)
+
+        def download(ticker, start, end, auto_adjust, progress):
+            return flaky(ticker, start, end)
+
+        monkeypatch.setattr(yfinance, "download", download)
+
+        frame = loader._fetch_yfinance("BBCA.JK", "2023-01-01", "2023-12-31")
+
+        assert flaky.calls == 3, "harus mencoba lagi sesudah gagal"
+        assert len(frame) == 40
+
+    def test_giving_up_names_the_underlying_cause(self, monkeypatch):
+        """Pesannya harus menyebut SSL, bukan cuma bilang datanya kosong."""
+        import yfinance
+
+        import stocklab.data.loader as loader
+
+        monkeypatch.setattr(loader, "FETCH_BACKOFF_SECONDS", 0.0)
+
+        def download(*args, **kwargs):
+            raise ConnectionError("SSL: unable to obtain common name")
+
+        monkeypatch.setattr(yfinance, "download", download)
+
+        with pytest.raises(ValueError, match="SSL"):
+            loader._fetch_yfinance("BBCA.JK", "2023-01-01", "2023-12-31", attempts=2)
+
+    def test_empty_result_is_also_retried(self, monkeypatch):
+        """yfinance kadang menjawab tanpa error tapi juga tanpa baris."""
+        import yfinance
+
+        import stocklab.data.loader as loader
+
+        monkeypatch.setattr(loader, "FETCH_BACKOFF_SECONDS", 0.0)
+        attempts = {"n": 0}
+
+        def download(ticker, start, end, auto_adjust, progress):
+            attempts["n"] += 1
+            return pd.DataFrame() if attempts["n"] < 3 else raw_frame(n=12)
+
+        monkeypatch.setattr(yfinance, "download", download)
+
+        frame = loader._fetch_yfinance("BBCA.JK", "2023-01-01", "2023-12-31")
+        assert attempts["n"] == 3 and len(frame) == 12
+
+
 class TestLoadOhlcv:
     def test_second_call_is_served_from_cache(self, tmp_path: Path):
         fetcher = CountingFetcher(raw_frame(n=40))

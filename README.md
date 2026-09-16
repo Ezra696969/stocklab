@@ -196,6 +196,23 @@ Alur yang sama dijalankan pada beberapa rentang waktu. Ini yang paling sering
 mementahkan strategi yang lolos semua pemeriksaan lain — dan yang paling jarang
 diperiksa, karena hasilnya paling sering mengecewakan.
 
+### Validasi lintas saham
+
+![Lintas saham](docs/cross_section.png)
+
+Pemeriksaan yang paling menentukan, dan yang paling sering tidak dilakukan.
+Stabilitas parameter menjawab apakah hasil bertahan saat slider digeser;
+stabilitas periode menjawab apakah bertahan di rentang waktu lain. Yang ini
+menjawab pertanyaan yang lebih mendasar: apakah yang ditemukan itu sifat
+**metodenya**, atau sifat **satu sahamnya**.
+
+Dua jebakan yang dijaga secara khusus. Yang pertama, melaporkan aset terbaik
+dari sepuluh yang dicoba adalah multiple testing yang paling mudah dilakukan
+tanpa sadar — jadi tidak ada metode di modul ini yang mengembalikan "saham
+terbaik", hanya sebarannya termasuk yang terburuk. Yang kedua, sepuluh saham
+dari satu bursa bukan sepuluh bukti; korelasi antar strategi ikut dilaporkan
+beserta jumlah **pengamatan bebas** yang setara.
+
 ### Deflated Sharpe
 
 Tiap kali slider digeser lalu dijalankan ulang, itu satu percobaan tambahan
@@ -252,9 +269,33 @@ bergantung pada asumsi biaya. Titik impasnya 35 bps per sisi, sementara biaya
 ritel BEI berada di kisaran yang perlu Anda cek sendiri ke broker Anda. Marginnya
 ada, tapi tidak lebar.
 
-Dan seluruh angka di atas berasal dari **satu saham**. Edge yang terlihat bisa
-jadi sifat BBCA, bukan sifat metodenya — validasi lintas saham belum dikerjakan,
-dan sampai itu ada, ini satu titik data, bukan bukti.
+### Lalu diuji di sepuluh saham lain, dan tidak bertahan
+
+Seluruh angka di atas berasal dari satu saham. Alur yang persis sama — indikator,
+model, walk-forward, biaya — dijalankan pada sebelas aset: delapan LQ45,
+indeksnya sendiri, dan dua saham Amerika.
+
+| | |
+|---|---|
+| Unggul pasif secara nominal | **36%** (4 dari 11) |
+| Unggul pasif secara Sharpe | **45%** (5 dari 11) |
+| Sharpe median | **0,20** |
+| Sharpe terburuk | **−1,30** (TLKM) |
+| Korelasi antar strategi | 0,11 — setara 5,3 pengamatan bebas |
+
+**BBCA adalah pengecualian, bukan aturan.** Sharpe 1,39 di sana berdiri
+sendirian; median dari sebelas aset cuma 0,20, dan dua saham rugi berat. Menang
+di 4 dari 11 adalah kira-kira yang diharapkan dari lemparan koin.
+
+Jadi kesimpulan sesungguhnya bukan "metode ini menghasilkan Sharpe 1,17",
+melainkan: metode ini menghasilkan Sharpe 1,17 **pada saham yang dipilih
+belakangan**, dan tidak menghasilkannya di tempat lain. Rangkaian pemeriksaan
+sebelumnya — rotasi, biaya, stabilitas parameter dan periode — semuanya dilewati
+dengan baik di BBCA. Hanya pemeriksaan terakhir ini yang menangkapnya.
+
+Itulah kenapa perkakas ini dibangun, dan menurut saya hasil inilah bagian paling
+berharga dari seluruh proyek: sebuah alat yang berhasil membantah temuannya
+sendiri.
 
 ---
 
@@ -400,9 +441,9 @@ menjelaskannya.
 
 ## Batasan yang diketahui
 
-- **Satu saham.** Seluruh bukti di README ini berasal dari BBCA. Edge yang
-  terlihat bisa jadi sifat BBCA, bukan sifat metodenya. Validasi lintas saham
-  belum dikerjakan.
+- **Satu bursa.** Validasi lintas saham memakai sebelas aset yang sebagian
+  besar dari BEI. Korelasinya rendah (0,11) sehingga setara sekitar lima
+  pengamatan bebas, tapi tetap satu rezim pasar dan satu rentang waktu.
 - **Long-only secara default.** Short bisa diaktifkan tapi biaya pinjamnya
   tidak dimodelkan.
 - **Satu aset per backtest.** Tidak ada konstruksi portofolio.
@@ -429,7 +470,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-433 test. Yang paling layak dibaca lebih dulu:
+451 test. Yang paling layak dibaca lebih dulu:
 
 | Berkas | Isi |
 |---|---|
@@ -439,11 +480,15 @@ pytest
 | `tests/test_validation.py` | Tiap pemeriksaan diuji berpasangan — sinyal informatif dan sinyal kosong |
 | `tests/test_upload.py` | Kebijakan artifact, deteksi format dari isi berkas, dan kesepakatan ONNX dengan pickle |
 | `tests/test_forecaster.py` | Konversi kuantil jadi peluang, dan kausalitas konteks peramal |
+| `tests/test_universe.py` | Deteksi korelasi antar aset dan jumlah pengamatan bebas yang setara |
 
 ### Belum dikerjakan
 
-- Validasi lintas saham
+Ketiga tier dan kelima pemeriksaan validasi sudah lengkap. Yang masuk akal
+berikutnya:
+- Validasi lintas saham dari panel UI, bukan hanya dari notebook
 - Perbandingan dua eksperimen berdampingan
+- `TrialLog` yang bertahan antar restart
 - CI menjalankan pytest
 
 Rancangan lengkapnya ada di [PLAN.md](PLAN.md).
