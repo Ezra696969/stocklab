@@ -1,6 +1,7 @@
 # StockLab
 
-[![tests](https://github.com/OWNER/REPO/actions/workflows/tests.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/tests.yml)
+[![tests](https://github.com/Ezra696969/stocklab/actions/workflows/tests.yml/badge.svg)](https://github.com/Ezra696969/stocklab/actions/workflows/tests.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Lab backtesting model machine learning untuk data saham — walk-forward, biaya
 transaksi, dan serangkaian pemeriksaan yang tugasnya **mementahkan** hasil
@@ -493,3 +494,9 @@ berikutnya:
 - Short selling di UI (engine sudah mendukung; biaya pinjamnya belum dimodelkan)
 
 Rancangan lengkapnya ada di [PLAN.md](PLAN.md).
+
+---
+
+## Lisensi
+
+MIT — lihat [LICENSE](LICENSE).

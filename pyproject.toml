@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=68"]
+# PEP 639 (license sebagai ekspresi SPDX + license-files) butuh setuptools 77.
+# pip mengambilnya sendiri saat build, jadi versi setuptools yang terpasang di
+# mesin user tidak perlu sebaru ini.
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +10,10 @@ name = "stocklab"
 version = "0.1.0"
 description = "Lab backtesting model ML untuk data saham"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Greg Ezra" }]
+readme = "README.md"
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.1",
