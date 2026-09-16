@@ -356,6 +356,23 @@ class TestChatClient:
         status = OllamaStatus(installed=True, reachable=True, models=("qwen2.5:7b",))
         assert ChatClient("llama3.2", status=status).model == "qwen2.5:7b"
 
+    def test_timeout_is_generous_enough_for_a_cold_start(self):
+        """Di CPU, jawaban pertama mudah melewati satu menit karena model dimuat.
+
+        Batas yang terlalu ketat membuat pertanyaan pertama selalu jatuh ke
+        ringkasan template walaupun Ollama sehat -- terbaca seperti fitur rusak.
+        """
+        from stocklab.llm.client import DEFAULT_TIMEOUT
+
+        assert ChatClient().timeout == DEFAULT_TIMEOUT
+        assert DEFAULT_TIMEOUT >= 180.0
+
+    def test_greeting_warns_about_the_first_answer(self):
+        status = OllamaStatus(installed=True, reachable=True, models=("llama3.2",))
+        client = ChatClient(status=status)
+
+        assert "satu menit" in client.greeting({"metrics": {"sharpe": 1.0}})
+
     def test_greeting_reports_the_offline_reason(self):
         client = ChatClient(status=OllamaStatus(installed=True, reachable=False))
         assert "ollama serve" in client.greeting({})

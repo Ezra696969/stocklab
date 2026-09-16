@@ -21,6 +21,18 @@ __all__ = ["ChatClient", "OllamaStatus", "probe_ollama"]
 
 DEFAULT_MODEL = "llama3.2"
 
+#: Batas waktu satu jawaban. Longgar dengan sengaja: di CPU, panggilan pertama
+#: harus memuat model ke memori lebih dulu dan mudah melewati satu menit.
+#: Batas yang terlalu ketat membuat pertanyaan pertama user selalu jatuh ke
+#: ringkasan template walaupun Ollama sehat -- gagal diam-diam yang terbaca
+#: seperti fitur yang tidak berfungsi.
+DEFAULT_TIMEOUT = 240.0
+
+#: Berapa lama model ditahan di memori setelah menjawab. Tanpa ini model
+#: dilepas setelah beberapa menit menganggur, dan pertanyaan berikutnya
+#: membayar ongkos pemuatan lagi.
+KEEP_ALIVE = "30m"
+
 
 @dataclass(frozen=True)
 class OllamaStatus:
@@ -93,7 +105,7 @@ class ChatClient:
         self,
         model: str = DEFAULT_MODEL,
         status: OllamaStatus | None = None,
-        timeout: float = 60.0,
+        timeout: float = DEFAULT_TIMEOUT,
     ):
         self.status = status if status is not None else probe_ollama()
         self.timeout = timeout
@@ -141,7 +153,9 @@ class ChatClient:
             import ollama
 
             client = ollama.Client(timeout=self.timeout)
-            response = client.chat(model=self.model, messages=messages)
+            response = client.chat(
+                model=self.model, messages=messages, keep_alive=KEEP_ALIVE
+            )
         except Exception as error:
             return (
                 f"Ollama gagal menjawab ({type(error).__name__}). "
@@ -167,4 +181,8 @@ class ChatClient:
                 "Siap. Jalankan backtest di panel bawah, lalu tanyakan apa saja "
                 "tentang hasilnya."
             )
-        return "Backtest sudah selesai. Ada yang ingin ditanyakan tentang hasilnya?"
+        return (
+            "Backtest sudah selesai. Ada yang ingin ditanyakan tentang hasilnya?\n\n"
+            "Jawaban pertama bisa memakan waktu sekitar satu menit karena model "
+            "harus dimuat ke memori dulu; sesudah itu jauh lebih cepat."
+        )
