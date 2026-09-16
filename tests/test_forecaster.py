@@ -11,7 +11,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-import torch
+
+# Peramal butuh torch, yang berukuran ratusan megabyte. Test ini dilewati kalau
+# extra "forecast" tidak terpasang, alih-alih menggagalkan seluruh koleksi.
+torch = pytest.importorskip("torch")
 
 from stocklab.models.base import ModelAdapter
 from stocklab.models.forecaster import (
@@ -220,6 +223,28 @@ class TestPredict:
         weights = adapter(FakePipeline()).predict_signal(X)
 
         assert weights.isna().all()
+
+
+class TestMissingDependency:
+    """Peramal ada di katalog walau pustakanya belum terpasang."""
+
+    def test_error_names_the_command_that_fixes_it(self, monkeypatch):
+        import builtins
+
+        import stocklab.models.forecaster as module
+
+        module._PIPELINE_CACHE.clear()
+        real_import = builtins.__import__
+
+        def blocked(name, *args, **kwargs):
+            if name.split(".")[0] in ("torch", "chronos"):
+                raise ImportError(f"no module named {name}")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", blocked)
+
+        with pytest.raises(ImportError, match=r'pip install -e "\.\[forecast\]"'):
+            module.load_pipeline("amazon/chronos-bolt-tiny")
 
 
 class TestDeviceResolution:

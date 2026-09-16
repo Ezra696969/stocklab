@@ -1,5 +1,7 @@
 # StockLab
 
+[![tests](https://github.com/OWNER/REPO/actions/workflows/tests.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/tests.yml)
+
 Lab backtesting model machine learning untuk data saham — walk-forward, biaya
 transaksi, dan serangkaian pemeriksaan yang tugasnya **mementahkan** hasil
 backtest, bukan mempercantiknya.
@@ -488,6 +490,6 @@ Ketiga tier dan kelima pemeriksaan validasi sudah lengkap. Yang masuk akal
 berikutnya:
 - Perbandingan dua eksperimen berdampingan
 - `TrialLog` yang bertahan antar restart
-- CI menjalankan pytest
+- Short selling di UI (engine sudah mendukung; biaya pinjamnya belum dimodelkan)
 
 Rancangan lengkapnya ada di [PLAN.md](PLAN.md).

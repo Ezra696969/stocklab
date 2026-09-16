@@ -1,0 +1,39 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Rentang yang didukung pyproject. Versi terendah yang paling sering
+        # menangkap pemakaian sintaks baru tanpa sadar.
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Pasang paket beserta dependensi opsional
+        # Extra app dan onnx ikut dipasang karena sebagian test memuat artifact
+        # ONNX dan merender panel. Extra forecast sengaja dilewati: torch
+        # menambah ratusan megabyte, dan test peramal memakai pipeline palsu
+        # sehingga tidak butuh bobot sungguhan.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[app,onnx,dev]"
+
+      - name: Jalankan test
+        # Tidak ada test yang menyentuh jaringan; pengambilan data disuntikkan
+        # lewat parameter fetcher, jadi hasilnya tidak bergantung pada apa yang
+        # sedang dilakukan bursa.
+        run: pytest -q

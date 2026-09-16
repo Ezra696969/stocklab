@@ -30,6 +30,8 @@ forecast = [
 ]
 dev = [
     "pytest>=8.0",
+    # Dipakai test untuk membuat artifact ONNX; bukan dependensi runtime.
+    "skl2onnx>=1.16",
 ]
 
 [tool.setuptools.packages.find]

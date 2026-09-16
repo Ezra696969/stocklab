@@ -191,8 +191,18 @@ def load_pipeline(model_id: str, device: str = "auto") -> Any:
     berkasnya ada di cache Hugging Face dan pemuatan jauh lebih cepat. Cache di
     sini menghindari pemuatan ulang dalam satu sesi.
     """
-    import torch
-    from chronos import BaseChronosPipeline
+    try:
+        import torch
+        from chronos import BaseChronosPipeline
+    except ImportError as error:
+        # Peramal ada di katalog walau pustakanya belum terpasang, supaya user
+        # bisa melihat pilihannya. Yang tidak boleh terjadi: gagal dengan jejak
+        # tumpukan mentah yang tidak menyebutkan cara memperbaikinya.
+        raise ImportError(
+            "model peramal butuh torch dan chronos-forecasting, yang tidak ikut "
+            'terpasang bersama extra "app" karena ukurannya ratusan megabyte. '
+            'Pasang dengan: pip install -e ".[forecast]"'
+        ) from error
 
     device = resolve_device(device)
 
